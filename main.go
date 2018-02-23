@@ -6,13 +6,13 @@ import (
 )
 
 func main() {
-	d, err := allVersions()
+	d, err := getGoDownloads()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	for _, v := range d.Versions {
-		ver := v.Version[:len(v.Version)-4]
+		ver := v.ver()
 		info, err := os.Stat(ver)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -29,13 +29,14 @@ func main() {
 		if !info.IsDir() {
 			log.Fatalf("%q exists and is not a directory", ver)
 		}
+		log.Printf("using hash: %q", v.Hash)
 		for _, f := range v.Files {
 			if f.Name == "" {
 				continue
 			}
-			if !f.check(ver) {
+			if !f.check(&v) {
 				log.Printf("missing %q; downloading", f.Name)
-				if err = f.get(ver); err != nil {
+				if err = f.get(&v); err != nil {
 					log.Fatal(err)
 				}
 			} else {

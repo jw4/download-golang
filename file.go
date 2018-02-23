@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,11 +12,11 @@ import (
 type file struct {
 	Name string `goquery:".filename a,text"`
 	URL  string `goquery:".filename a,[href]"`
-	SHA  sha    `goquery:"td tt,text"`
+	Sum  sha    `goquery:"td tt,text"`
 }
 
-func (f *file) check(root string) bool {
-	name := filepath.Join(root, f.Name)
+func (f *file) check(v *version) bool {
+	name := filepath.Join(v.ver(), f.Name)
 	info, err := os.Stat(name)
 	if err != nil {
 		return false
@@ -25,51 +24,52 @@ func (f *file) check(root string) bool {
 	if !info.Mode().IsRegular() {
 		return false
 	}
-
 	in, err := os.Open(name)
 	if err != nil {
 		return false
 	}
 	defer in.Close()
 
-	hasher := sha256.New()
-	_, err = io.Copy(hasher, in)
-	if err != nil {
+	hasher := v.hash().New()
+	if _, err = io.Copy(hasher, in); err != nil {
 		return false
 	}
-	return f.SHA.match(hasher.Sum(nil))
+	return f.Sum.match(hasher.Sum(nil))
 }
 
-func (f *file) get(root string) error {
-	tfile, err := ioutil.TempFile(root, f.Name)
+func (f *file) get(v *version) error {
+	temp, err := ioutil.TempFile(v.ver(), f.Name)
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tfile.Name())
+	defer os.Remove(temp.Name())
+	defer temp.Close()
 
-	res, err := http.Get(f.URL)
+	response, err := http.Get(f.URL)
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close()
-	switch res.StatusCode {
+	defer response.Body.Close()
+
+	switch response.StatusCode {
 	case http.StatusOK:
 	default:
-		return fmt.Errorf("unexpected response code: %d", res.StatusCode)
+		return fmt.Errorf("unexpected response code: %d", response.StatusCode)
 	}
 
-	sh := sha256.New()
-	tee := io.MultiWriter(tfile, sh)
-	_, err = io.Copy(tee, res.Body)
-	if err != nil {
+	hasher := v.hash().New()
+	if _, err = io.Copy(io.MultiWriter(temp, hasher), response.Body); err != nil {
 		return err
 	}
 
-	sha2 := sh.Sum(nil)
-	if !f.SHA.match(sha2) {
-		return fmt.Errorf("sha256 differs; expected:\n%s got:\n%x", f.SHA, sha2)
+	sum := hasher.Sum(nil)
+	if !f.Sum.match(sum) {
+		return fmt.Errorf("sha256 differs; expected:\n%s got:\n%x", f.Sum, sum)
 	}
 
-	name := filepath.Join(root, f.Name)
-	return os.Rename(tfile.Name(), name)
+	if err = temp.Chmod(0644); err != nil {
+		return err
+	}
+
+	return os.Rename(temp.Name(), filepath.Join(v.ver(), f.Name))
 }
