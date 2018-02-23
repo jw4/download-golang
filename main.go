@@ -27,6 +27,9 @@ func main() {
 			log.Fatalf("%q exists and is not a directory", ver)
 		}
 		for _, f := range v.Files {
+			if f.Name == "" {
+				continue
+			}
 			if !f.check(ver) {
 				log.Printf("missing %q; downloading", f.Name)
 				if err = f.get(ver); err != nil {
