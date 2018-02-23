@@ -23,6 +23,9 @@ func main() {
 				log.Fatal(err)
 			}
 		}
+		if info == nil {
+			continue
+		}
 		if !info.IsDir() {
 			log.Fatalf("%q exists and is not a directory", ver)
 		}
