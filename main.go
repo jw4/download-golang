@@ -11,8 +11,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	for _, v := range d.Versions {
-		ver := v.ver()
+	for _, v := range d {
+		ver := v.Version
 		info, err := os.Stat(ver)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -29,18 +29,17 @@ func main() {
 		if !info.IsDir() {
 			log.Fatalf("%q exists and is not a directory", ver)
 		}
-		log.Printf("using hash: %q", v.Hash)
 		for _, f := range v.Files {
-			if f.Name == "" {
+			if f.Filename == "" {
 				continue
 			}
-			if !f.check(&v) {
-				log.Printf("missing %q; downloading", f.Name)
-				if err = f.get(&v); err != nil {
+			if !f.check() {
+				log.Printf("missing %q; downloading", f.Filename)
+				if err = f.get(); err != nil {
 					log.Fatal(err)
 				}
 			} else {
-				log.Printf("already have %q with matching hash; skipping", f.Name)
+				log.Printf("already have %q with matching hash; skipping", f.Filename)
 			}
 		}
 	}

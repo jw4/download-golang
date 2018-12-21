@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -10,13 +11,17 @@ import (
 )
 
 type file struct {
-	Name string `goquery:".filename a,text"`
-	URL  string `goquery:".filename a,[href]"`
-	Sum  sha    `goquery:"td tt,text"`
+	Filename string `json:"filename"`
+	OS       string `json:"os"`
+	Arch     string `json:"arch"`
+	Version  string `json:"version"`
+	SHA256   sha    `json:"sha256"`
+	Size     int    `json:"size"`
+	Kind     string `json:"kind"`
 }
 
-func (f *file) check(v *version) bool {
-	name := filepath.Join(v.ver(), f.Name)
+func (f file) check() bool {
+	name := filepath.Join(f.Version, f.Filename)
 	info, err := os.Stat(name)
 	if err != nil {
 		return false
@@ -30,22 +35,22 @@ func (f *file) check(v *version) bool {
 	}
 	defer in.Close()
 
-	hasher := v.hash().New()
+	hasher := crypto.SHA256.New()
 	if _, err = io.Copy(hasher, in); err != nil {
 		return false
 	}
-	return f.Sum.match(hasher.Sum(nil))
+	return f.SHA256.match(hasher.Sum(nil))
 }
 
-func (f *file) get(v *version) error {
-	temp, err := ioutil.TempFile(v.ver(), f.Name)
+func (f file) get() error {
+	temp, err := ioutil.TempFile(f.Version, f.Filename)
 	if err != nil {
 		return err
 	}
 	defer os.Remove(temp.Name())
 	defer temp.Close()
 
-	response, err := http.Get(f.URL)
+	response, err := http.Get(fmt.Sprintf("https://golang.org/dl/%s", f.Filename))
 	if err != nil {
 		return err
 	}
@@ -57,19 +62,19 @@ func (f *file) get(v *version) error {
 		return fmt.Errorf("unexpected response code: %d", response.StatusCode)
 	}
 
-	hasher := v.hash().New()
+	hasher := crypto.SHA256.New()
 	if _, err = io.Copy(io.MultiWriter(temp, hasher), response.Body); err != nil {
 		return err
 	}
 
 	sum := hasher.Sum(nil)
-	if !f.Sum.match(sum) {
-		return fmt.Errorf("sha256 differs; expected:\n%s got:\n%x", f.Sum, sum)
+	if !f.SHA256.match(sum) {
+		return fmt.Errorf("sha256 differs; expected:\n%s got:\n%x", f.SHA256, sum)
 	}
 
 	if err = temp.Chmod(0644); err != nil {
 		return err
 	}
 
-	return os.Rename(temp.Name(), filepath.Join(v.ver(), f.Name))
+	return os.Rename(temp.Name(), filepath.Join(f.Version, f.Filename))
 }
