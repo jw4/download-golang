@@ -29,6 +29,9 @@ func (f file) check() bool {
 	if !info.Mode().IsRegular() {
 		return false
 	}
+	if f.SHA256.match([]byte{}) {
+		return true
+	}
 	in, err := os.Open(name)
 	if err != nil {
 		return false
@@ -67,9 +70,11 @@ func (f file) get() error {
 		return err
 	}
 
-	sum := hasher.Sum(nil)
-	if !f.SHA256.match(sum) {
-		return fmt.Errorf("sha256 differs; expected:\n%s got:\n%x", f.SHA256, sum)
+	if !f.SHA256.match([]byte{}) {
+		sum := hasher.Sum(nil)
+		if !f.SHA256.match(sum) {
+			return fmt.Errorf("sha256 differs; expected:\n%s got:\n%x", f.SHA256, sum)
+		}
 	}
 
 	if err = temp.Chmod(0644); err != nil {
