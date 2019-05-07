@@ -6,7 +6,7 @@ import (
 )
 
 func getGoDownloads() (download, error) {
-	res, err := http.Get("https://golang.org/dl/?mode=json")
+	res, err := http.Get("https://golang.org/dl/?mode=json&include=all")
 	if err != nil {
 		return nil, err
 	}
