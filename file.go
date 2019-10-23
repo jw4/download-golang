@@ -6,8 +6,16 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/cookiejar"
 	"os"
 	"path/filepath"
+	"time"
+)
+
+var (
+	staticBuffer = make([]byte, 1<<16)
+	jar, _       = cookiejar.New(nil)
+	client       = &http.Client{Timeout: time.Second * 600, Jar: jar}
 )
 
 type file struct {
@@ -39,7 +47,7 @@ func (f file) check() bool {
 	defer in.Close()
 
 	hasher := crypto.SHA256.New()
-	if _, err = io.Copy(hasher, in); err != nil {
+	if _, err = io.CopyBuffer(hasher, in, staticBuffer); err != nil {
 		return false
 	}
 	return f.SHA256.match(hasher.Sum(nil))
@@ -53,7 +61,7 @@ func (f file) get() error {
 	defer os.Remove(temp.Name())
 	defer temp.Close()
 
-	response, err := http.Get(fmt.Sprintf("https://golang.org/dl/%s", f.Filename))
+	response, err := client.Get(fmt.Sprintf("https://golang.org/dl/%s", f.Filename))
 	if err != nil {
 		return err
 	}
@@ -66,7 +74,7 @@ func (f file) get() error {
 	}
 
 	hasher := crypto.SHA256.New()
-	if _, err = io.Copy(io.MultiWriter(temp, hasher), response.Body); err != nil {
+	if _, err = io.CopyBuffer(io.MultiWriter(temp, hasher), response.Body, staticBuffer); err != nil {
 		return err
 	}
 

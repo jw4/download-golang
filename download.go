@@ -3,10 +3,12 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 )
 
 func getGoDownloads() (download, error) {
-	res, err := http.Get("https://golang.org/dl/?mode=json&include=all")
+	client := &http.Client{Timeout: time.Second * 30}
+	res, err := client.Get("https://golang.org/dl/?mode=json&include=all")
 	if err != nil {
 		return nil, err
 	}
