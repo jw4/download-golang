@@ -1,3 +1,8 @@
+## Deprecated
+
+See https://github.com/jw4/go-downloader for updated version
+
+
 # download-golang
 
 Simple tool to download golang binaries, verifying hashes, and skipping if already valid.
